@@ -223,7 +223,6 @@ class RC is export {
         #generate list of strings based on the wildcard in $fuzzstr
         given $fuzzstr {
             when /IFUZZ/ {
-                #$fuzzstr ~~ s/IFUZZ/FUZZ/;
                 while my $word = self!rl {
                     @s = $fuzzstr.split('FUZZ');
                     &insert-string($word);
@@ -235,7 +234,6 @@ class RC is export {
                 unless $source.defined && $source ~~ Str {
                     die '$source must be a path string to fuzz with a file' }
                 unless $source.IO ~~ :r { die "Can't read $source." }
-                #$fuzzstr ~~ s/FILE/FUZZ/;
                 @strings = $source.IO.lines;
             }
             when /PROG/ {
