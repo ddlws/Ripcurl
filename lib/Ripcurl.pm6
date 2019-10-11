@@ -1,4 +1,4 @@
-unit module ripcurl;
+unit module Ripcurl;
 use NativeCall;
 use LibCurl::Easy;
 use Readline;
@@ -11,7 +11,9 @@ class RC is export {
     has Str %.hdr;
     has Hash @!hdrstack;
     has Str @!targetstack;
-    has LibCurl::Easy $.curl;
+    has LibCurl::Easy $.curl handles <buf content error getinfo primary-ip success
+            receiveheaders get-header effective-url response-code statusline version
+            version-info>;
     has Readline $!readline.=new;
 
     method new(Str $url, |capture ) { self.bless(:$url, |capture); }
@@ -34,7 +36,7 @@ class RC is export {
         %!hdr<Host> = $/[1].Str unless %!hdr<host>;
         $!target = ?$/[2] ?? $/[2].Str !! '/' unless $!target;
 
-        $!curl.= new(URL => $/[0].Str~$/[1].Str, :path-as-is, request-target=>$!target,
+        $!curl.= new(URL => $/[0].Str~$/[1].Str, :path-as-is, failonerror=>0, request-target=>$!target,
                 |%curlopts);
         self.set-header() if %!hdr;
 
@@ -194,7 +196,7 @@ class RC is export {
                     #TODO: double check the rfc and make sure this is specified before
                     #you assume
                     my $theader = @s[0]~$t~@s[1];
-                    $theader ~~ /(\w*)\:\s(.*)/;
+                    $theader ~~ /(\w*)\:\s+(.*)/;
                     die "Couldn't parse the header" unless $/[0].defined &&
                             $/[1].defined;
                     self.setheader( $/[0] => $/[1] );
@@ -221,7 +223,7 @@ class RC is export {
         #generate list of strings based on the wildcard in $fuzzstr
         given $fuzzstr {
             when /IFUZZ/ {
-                $fuzzstr ~~ s/IFUZZ/FUZZ/;
+                #$fuzzstr ~~ s/IFUZZ/FUZZ/;
                 while my $word = self!rl {
                     @s = $fuzzstr.split('FUZZ');
                     &insert-string($word);
@@ -233,26 +235,23 @@ class RC is export {
                 unless $source.defined && $source ~~ Str {
                     die '$source must be a path string to fuzz with a file' }
                 unless $source.IO ~~ :r { die "Can't read $source." }
-                $fuzzstr ~~ s/FILE/FUZZ/;
+                #$fuzzstr ~~ s/FILE/FUZZ/;
                 @strings = $source.IO.lines;
             }
             when /PROG/ {
                 unless $source.defined && $source ~~ Str {
                     die '$source must contain a cmdline string to fuzz with output '~
                     'from an external program.' }
-                $fuzzstr ~~ s/PROG/FUZZ/;
                 @strings = qqx[$source].lines;
             }
             when /RANGE/ {
                 unless $source.defined && $source ~~ Range {
                     die '$source must contain a perl6 Range to fuzz a range' }
-                $fuzzstr ~~ s/RANGE/FUZZ/;
                 @strings = $source.list;
             }
             when /ARRAY/ {
                 unless $source.defined && $source ~~ Array {
                     die '$source must contain a perl6 Array to fuzz with an array' }
-                $fuzzstr ~~ s/ARRAY/FUZZ/;
                 @strings = $source.Array;
             }
             default { die 'You have to fuzz something!' }
@@ -260,7 +259,7 @@ class RC is export {
 
         #main loop over the list of strings
         for @strings {
-            @s = $fuzzstr.split('FUZZ');
+            @s = $fuzzstr.split(<IFUZZ FILE PROG RANGE ARRAY>,2);
             &insert-string($_);
             &doit();
         }
@@ -333,15 +332,7 @@ class RC is export {
         Readline::rl_add_defun($name, &func, -1);
         $!readline.bind-keyseq($keyseq,&func);
     }
-
     method perform(){ $!curl.perform; return self }
-    method content($encoding='utf-8' -->Str){ $!curl.content($encoding) }
-    method buf(-->Buf){ $!curl.buf() }
-    method receiveheaders( --> Hash){ $!curl.receiveheaders }
-    method get-header(Str $hdr){ $!curl.get-header($hdr) }
-    method response-code() { return $!curl.response-code }
-    method statline() { return $!curl.statusline }
-
     method setopt(*%opts) {$!curl.setopt(|%opts); return self}
     multi method set-header(%header){
         for %header.keys { %!hdr{$_} = %header{$_} }

@@ -1,0 +1,19 @@
+use Test;
+use Test::When <author>;
+use Ripcurl;
+
+plan 5;
+
+my $rc = RC.new('https://perl6.org/',:followlocation);
+
+isa-ok $rc, Ripcurl::RC, 'Created Object';
+
+is $rc.effective-url, 'https://perl6.org', 'URL set';
+
+$rc.perform;
+
+is $rc.response-code, 200, 'Response code';
+
+is $rc.statusline, 'HTTP/2 200', 'Status line';
+
+like $rc.get-header('content-type'), /^text\/html/, 'Content-Type';

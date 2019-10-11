@@ -176,7 +176,7 @@ Send a GET request to `$temptarget`, where `$temptarget` is a new request target
 
 ### method head()
 
-Send a HEAD request.
+Send a HEAD request. This method sets `nobody` to True, which tells libcurl not to download the body of the response. If you call this and want to make a GET request later, you will have to manually reset `nobody` with `$rc.setopt(:nobody=>False)`.
 
 ### method head(Str $temptarget, Bool :$append)
 
